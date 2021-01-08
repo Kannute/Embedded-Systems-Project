@@ -7,11 +7,8 @@
 #include <math.h>
 #include "asciiLib.h"
 #include "TP_Open1768.h"
+#include "PIN_LPC17xx.h" 
 /*
-	#define ADRX_RAM 0x20    //RAM address set X
-	#define ADRY_RAM 0x21    //RAM address set Y
-	#define DATA_RAM 0x0022 //RAM data
-	#define LCDRed             0xF800
 	LCD_MAX_Y  320
 	LCD_MAX_X  240
 */
@@ -39,6 +36,16 @@ long int det(int A00, int A01, int A02, int A10, int A11, int A12, int A20, int 
     double betay;
     double deltay;
 
+		char button_pressed = '-';
+		int temp1=0;
+		int temp2=0;
+		static int v=0;
+
+		short list[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
+687,645,601,557,512,468,423,379,337,296,256,219,183,150,120,
+93,69,48,31,18,8,2,0,2,8,18,31,48,69,93,120,150,183,219,256,
+296,337,379,423,468,512,557,601,645,687,728,768,806,841,
+874,904,931,954,976,993,1006,1016,1022,1023};
 
 
 void calibrate()
@@ -52,8 +59,8 @@ void calibrate()
     int x3 = 120;
     int y3 = 250;
 
-    int x1_p = 510;//678;//490;
-    int y1_p = 1000;//2169;//10500;
+    int x1_p = 510;
+    int y1_p = 1000;
 
     int x2_p = 510;//2807;//493;
     int y2_p = 3300;//1327;//33000;
@@ -89,7 +96,7 @@ void calibrate()
 
 int getX(int x,int y)
 {
-    return (alfax* x + betax* y + deltax)/1;
+    return ((alfax* x + betax* y + deltax)/1);
 }
 
 
@@ -98,21 +105,102 @@ int getY(int x, int y)
     return (alfay* x + betay* y + deltay)/1;
 }
 
+void toDAC(short val)
+{
+	LPC_DAC->DACR=val<<6;
+}
 
 
+void TIMER0_IRQHandler(void)  {
+				
+				toDAC( list[v]);
+				v++;
+				v%=72;
+		
+			if(list[v] == 1023) 
+				v=0;
+      LPC_TIM0->IR = 1;
+}
 
+void EINT3_IRQHandler(void)
+{
 
+		NVIC_DisableIRQ(EINT3_IRQn);
+		
+		int x;
+		int y;
+		char string1[46];
+
+		touchpanelGetXY(&x, &y);
+		sprintf(string1,"%d %d",getX(x,y), getY(x,y));
+
+		print_string(100,260,string1);
+		int temp1=getX(x,y);
+		int temp2=getY(x,y);
+		x=temp1;
+		y=temp2;
+	
+		if(y<=230&&y>=0)
+		{
+			if(x<=30&&x>=0)
+			{
+				print_string(100,300,"1");
+				
+			}
+			else if(x<=60)
+			{
+				print_string(100,300,"2");
+			}
+			else if(x<=90)
+			{
+				print_string(100,300,"3");
+			}
+			else if(x<=120)
+			{
+				print_string(100,300,"4");
+			}
+			else if(x<=150)
+			{
+				print_string(100,300,"5");
+			}
+			else if(x<=180)
+			{
+				print_string(100,300,"6");
+			}
+			else if(x<=210)
+			{
+				print_string(100,300,"7");
+			}
+			else if(x<=240)
+			{
+				print_string(100,300,"8");
+			}	
+		}
+		else
+		{
+			print_string(100,300,"-");
+		}
+	
+		
+	
+		temp1=-1;
+		temp2=-1;
+		LPC_GPIOINT->IO0IntClr=(1<<19);
+		
+		NVIC_EnableIRQ(EINT3_IRQn);
+	
+}
 
 int main(void)
 {
-	//Zadanie - Zamazac caly ekran LCD
+	////do zrobienia TIMER(do zmiany czestotliwosci sygnalow) lub SysTick - oba powinny dzialac  oraz przerwania
 	
 	lcdConfiguration();
 	init_ILI9325();
-//	lcdWriteReg(ADRX_RAM, 100 );
-//  lcdWriteReg(ADRY_RAM, 100 );
-//	lcdWriteReg(DATA_RAM, LCDGreen );
+
 	paint();
+	
+	/* sprawdzanie kalibracja
 	
 	lcdWriteReg(ADRX_RAM, 50 );
   lcdWriteReg(ADRY_RAM, 30 );
@@ -126,34 +214,24 @@ int main(void)
 	lcdWriteReg(ADRX_RAM, 120 );
   lcdWriteReg(ADRY_RAM, 250 );
 	lcdWriteReg(DATA_RAM, LCDGreen );
-	
+	*/
 
 	
 	 calibrate();
 	
-	//Rysowanie ksztaltow
-	//paint();
-	//paint_line(10,10,150,180);
-	//paint_straightLine(10,10,150,10);
-	//paint_rect(10, 10, 100, 100); 
-	//fill_rect(10, 10, 100, 100); 
-	//paint_circle(10, 100, 100);//TODO
-//	print_letter(30,30,'A');
-	//print_string(30,30,"ABCDEFGHIJK");
-/*	
-	//Sprwadzenie ukladu sterujacego
 	
-	LED_Initialize();
-	if(lcdReadReg(0x00) == 0x8989)
-		LED_SetOut(0);
-	else if (lcdReadReg(0x00) == 0x9325 || lcdReadReg(0x00) == 0x9328)
-		LED_SetOut(3);
-	*/
 	
-	touchpanelInit();
+touchpanelInit();
 	
-//	print_letter(130,130, 'R');
 
+fill_rect(0, 0,30,230);
+fill_rect(31, 0,60,230);
+fill_rect(61, 0,90,230);
+fill_rect(91, 0,120,230);
+fill_rect(121, 0,150,230);
+fill_rect(151, 0,180,230);
+fill_rect(181, 0,210,230);
+fill_rect(211, 0,240,230);
 
 
 
@@ -162,19 +240,25 @@ int main(void)
 	
 	LPC_SC->PCLKSEL0=1<<22;
 
-
-	LPC_DAC->DACR=1023<<6;
 	
-	while(1){
-		int x;
-		int y;
-		char string1[46];
-
-		touchpanelGetXY(&x, &y);
-		sprintf(string1,"%d %d",getX(x,y), getY(x,y));
-
-		print_string(100,30,string1);
-	}
+	
+	//PINY
+	uint32_t _pin = PIN_Configure(0, 19, 0, 2, 0);
+	uint32_t _pin1 = PIN_Configure(0, 2, 1, 2, 0);
+	uint32_t _pin2 = PIN_Configure(0, 3, 1, 2, 0);
+	
+	//Przerwania z GPIO             
+	LPC_GPIOINT->IO0IntEnF=(1<<19);
+	NVIC_EnableIRQ(EINT3_IRQn);
+	
+	//TIMER
+	LPC_TIM0->PR = 0;
+	LPC_TIM0->MCR  = (1<<1) | (1<<0);   
+	LPC_TIM0->MR0  = SystemCoreClock/4/1000;  
+	LPC_TIM0->TCR=1;     
+	NVIC_EnableIRQ(TIMER0_IRQn);
+	
+	while(1){}
 	
 
 
@@ -188,7 +272,7 @@ void paint(){
 	lcdSetCursor(0, 0);
 	for(uint16_t x=0; x<LCD_MAX_X; x++){
 		for(uint16_t y=0; y<LCD_MAX_Y; y++){
-			lcdWriteReg(DATA_RAM,0xF800);
+			lcdWriteReg(DATA_RAM,LCDBlack);
 		}
 	}
 	
@@ -234,6 +318,7 @@ void print_letter(int x, int y, char c){
 
 void print_string(int x, int y,char* s)
 {
+	
 	int i=0;
 	int x0 = x;
 
@@ -301,7 +386,7 @@ void paint_circle(int r, int x, int y){
 		lcdWriteReg(DATA_RAM,0xF800);
 		
 	}
-	//lineFrom(x0 - x, y0 + y, x0 + x, y0 + y);
+
 }
 
 //Rysuj prostokat
@@ -316,26 +401,11 @@ void paint_rect(int x1, int y1, int x2, int y2){
 //Wypelnij prostokat
 void fill_rect(int x1, int y1, int x2, int y2){
 	
-	int dx, dy;
-	
-	if (x1 < x2)   
-		dx = x2 - x1;
-    
-  else
-		dx = x1 - x2;
-     
-
-  if (y1 < y2)
-    dy = y2 - y1;
-     
-  else
-		dy = y1 - y2;
-
 	lcdSetCursor(x1, y1);
-	for(uint16_t x=x1; x<dx; x++){
-		for(uint16_t y=y1; y<dy; y++){
+	for(uint16_t x=x1; x<x2; x++){
+		for(uint16_t y=y1; y<y2; y++){
 			lcdSetCursor(x, y);
-			lcdWriteReg(DATA_RAM,0xF800);
+			lcdWriteReg(DATA_RAM,LCDWhite);
 		}
 	}
 	
@@ -381,7 +451,7 @@ void paint_line(int x1, int y1, int x2, int y2){
          // petla po kolejnych x
          while (x != x2)
          {
-             // test wspólczynnika
+             // test wspÃ³lczynnika
              if (d >= 0)
              {
                  x += xi;
@@ -405,7 +475,7 @@ void paint_line(int x1, int y1, int x2, int y2){
          // petla po kolejnych y
          while (y != y2)
          {
-             // test wspólczynnika
+             // test wspÃ³lczynnika
              if (d >= 0)
              {
                  x += xi;
