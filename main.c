@@ -8,120 +8,69 @@
 #include "asciiLib.h"
 #include "TP_Open1768.h"
 #include "PIN_LPC17xx.h" 
-/*
-	LCD_MAX_Y  320
+
+/* 
+	**** LCD display boundaries ****
+
+	LCD_MAX_Y  320		
 	LCD_MAX_X  240
 */
 
-void paint();
-void paint_line(int, int, int, int);
-void paint_straightLine(int, int, int, int);
-void fill_rect(int, int, int, int);
-void paint_rect(int, int, int, int);
-void paint_circle(int, int, int);//TODO
-void print_letter(int,int,char);
-void print_string(int,int,char*);
+void paint();												//Fill lcd screen
+void paint_line(int, int, int, int);						//Paint line on display
+void paint_straightLine(int, int, int, int);				//Paint straight line on display
+void fill_rect(int, int, int, int);							//Paint filled rectangle on display	
+void paint_rect(int, int, int, int);						//Paint hollow ractancle on display
+void print_letter(int,int,char);							//Print letter on display
+void print_string(int,int,char*);							//Print string on display
+long int det(int, int, int, int, int, int, int, int, int); 	//Calculate determinant (used for display-touchscreen calibration)
+int getX(int, int);											//Get calibrated X touchscreen coordinate
+int getY(int, int);											//Get calibrated Y touchscreen coordinate
+void calibrate();											//Calibrate display and touchscreen
 
 
+/******* GLOBAL VARIABLES *******/
 
-long int det(int A00, int A01, int A02, int A10, int A11, int A12, int A20, int A21, int A22){
-    return A00*(A11*A22 - A21*A12) - A01 *(A10*A22 -A20*A12) + A02*(A10*A21 - A20*A11);
-}
+//Calibration variables
+double alfax;
+double betax;
+double deltax;
+double alfay;
+double betay;
+double deltay;
 
-    double alfax;
-    double betax;
-    double deltax;
+char button_pressed = '-';									//Button currently pressed on touchscreen -> default (no button pressed) '-'
+int temp1=0;												//Temporary value for x coordinate value
+int temp2=0;												//Temporary value for y coordinate value
+static int v=0;												//Value sent to DAC register
 
-    double alfay;
-    double betay;
-    double deltay;
-
-		char button_pressed = '-';
-		int temp1=0;
-		int temp2=0;
-		static int v=0;
-
-		short list[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
+//Cosine values to be sent to DAC (5 deg steps)
+short list[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
 687,645,601,557,512,468,423,379,337,296,256,219,183,150,120,
 93,69,48,31,18,8,2,0,2,8,18,31,48,69,93,120,150,183,219,256,
 296,337,379,423,468,512,557,601,645,687,728,768,806,841,
 874,904,931,954,976,993,1006,1016,1022,1023};
 
 
-void calibrate()
-{
-    int x1 = 50;
-    int y1 = 30;
-
-    int x2 = 200;
-    int y2 =30;
-
-    int x3 = 120;
-    int y3 = 250;
-
-    int x1_p = 510;
-    int y1_p = 1000;
-
-    int x2_p = 510;//2807;//493;
-    int y2_p = 3300;//1327;//33000;
-
-    int x3_p = 3000;//2629;//2970;
-    int y3_p = 2100;//3367;//2180;
-
-    long int delta =  det(x1_p, y1_p, 1, x2_p, y2_p, 1, x3_p, y3_p, 1);
-    long int dx1 =  det(x1, y1_p, 1, x2, y2_p, 1, x3, y3_p, 1);
-    long int dx2 = det(x1_p, x1, 1, x2_p, x2, 1, x3_p, x3, 1);
-    long int dx3 = det(x1_p, y1_p, x1, x2_p, y2_p, x2, x3_p, y3_p, x3);
-    long int dy1 = det(y1, y1_p, 1, y2, y2_p, 1, y3, y3_p, 1);
-    long int dy2 = det(x1_p, y1, 1, x2_p, y2, 1, x3_p, y3, 1);
-    long int dy3 = det(x1_p, y1_p, y1, x2_p, y2_p, y2, x3_p, y3_p, y3);
-
-    
-
-    alfax = (double)dx1/delta;
-    betax =  (double)dx2/delta;
-    deltax = (double)dx3/delta;
-
-    alfay = (double)dy1 / delta;
-    betay = (double)dy2/delta;
-    deltay = (double)dy3/delta;
-
-
-
-
-
-
-
-}
-
-int getX(int x,int y)
-{
-    return ((alfax* x + betax* y + deltax)/1);
-}
-
-
-int getY(int x, int y)
-{
-    return (alfay* x + betay* y + deltay)/1;
-}
-
+//Sending value to DAC
 void toDAC(short val)
 {
 	LPC_DAC->DACR=val<<6;
 }
 
-
+/* TIMER handler sending values to DAC*/
 void TIMER0_IRQHandler(void)  {
 				
-				toDAC( list[v]);
-				v++;
-				v%=72;
+	toDAC( list[v]);
+	v++;
+	v%=72;
 		
-			if(list[v] == 1023) 
-				v=0;
-      LPC_TIM0->IR = 1;
+	if(list[v] == 1023) 
+		v=0;
+    LPC_TIM0->IR = 1;
 }
 
+/* IRQ interrupt (touchscreen) handler */
 void EINT3_IRQHandler(void)
 {
 
@@ -135,8 +84,8 @@ void EINT3_IRQHandler(void)
 		sprintf(string1,"%d %d",getX(x,y), getY(x,y));
 
 		print_string(100,260,string1);
-		int temp1=getX(x,y);
-		int temp2=getY(x,y);
+		temp1=getX(x,y);
+		temp2=getY(x,y);
 		x=temp1;
 		y=temp2;
 	
@@ -200,42 +149,40 @@ int main(void)
 
 	paint();
 	
-	/* sprawdzanie kalibracja
-	
+	/* Three points for display-touchscreen calibration*/
+	/*
 	lcdWriteReg(ADRX_RAM, 50 );
-  lcdWriteReg(ADRY_RAM, 30 );
+  	lcdWriteReg(ADRY_RAM, 30 );
 	lcdWriteReg(DATA_RAM, LCDGreen );
 	
 	lcdWriteReg(ADRX_RAM, 200 );
-  lcdWriteReg(ADRY_RAM, 30 );
+  	lcdWriteReg(ADRY_RAM, 30 );
 	lcdWriteReg(DATA_RAM, LCDGreen );
 	
 	
 	lcdWriteReg(ADRX_RAM, 120 );
-  lcdWriteReg(ADRY_RAM, 250 );
+  	lcdWriteReg(ADRY_RAM, 250 );
 	lcdWriteReg(DATA_RAM, LCDGreen );
 	*/
 
 	
-	 calibrate();
+	calibrate();
 	
+	touchpanelInit();
 	
-	
-touchpanelInit();
-	
-
-fill_rect(0, 0,30,230);
-fill_rect(31, 0,60,230);
-fill_rect(61, 0,90,230);
-fill_rect(91, 0,120,230);
-fill_rect(121, 0,150,230);
-fill_rect(151, 0,180,230);
-fill_rect(181, 0,210,230);
-fill_rect(211, 0,240,230);
+	//Paint buttons
+	fill_rect(0, 0,30,230);
+	fill_rect(31, 0,60,230);
+	fill_rect(61, 0,90,230);
+	fill_rect(91, 0,120,230);
+	fill_rect(121, 0,150,230);
+	fill_rect(151, 0,180,230);
+	fill_rect(181, 0,210,230);
+	fill_rect(211, 0,240,230);
 
 
 
-  LPC_PINCON->PINSEL1=2<<20;
+  	LPC_PINCON->PINSEL1=2<<20;
 	LPC_PINCON->PINMODE1=1<<20;
 	
 	LPC_SC->PCLKSEL0=1<<22;
@@ -265,14 +212,74 @@ fill_rect(211, 0,240,230);
 	return 0;
 }
 
-//Wypelnij tlo
+
+/**************** FUNCTIONS ********************/
+
+void calibrate()
+{
+	//Three point display-touchscreen calibration
+
+	//1. point on display
+    int x1 = 50;
+    int y1 = 30;
+
+	//2. point on display
+    int x2 = 200;
+    int y2 =30;
+
+	//3. point on display
+    int x3 = 120;
+    int y3 = 250;
+
+
+	//1. point coordinates on touchscreen
+    int x1_p = 510;
+    int y1_p = 1000;
+
+	//2. point coordinates on touchscreen
+    int x2_p = 510;
+    int y2_p = 3300;
+
+	//3. point coordinates on touchscreen
+    int x3_p = 3000;
+    int y3_p = 2100;
+
+    long int delta =  det(x1_p, y1_p, 1, x2_p, y2_p, 1, x3_p, y3_p, 1);
+    long int dx1 =  det(x1, y1_p, 1, x2, y2_p, 1, x3, y3_p, 1);
+    long int dx2 = det(x1_p, x1, 1, x2_p, x2, 1, x3_p, x3, 1);
+    long int dx3 = det(x1_p, y1_p, x1, x2_p, y2_p, x2, x3_p, y3_p, x3);
+    long int dy1 = det(y1, y1_p, 1, y2, y2_p, 1, y3, y3_p, 1);
+    long int dy2 = det(x1_p, y1, 1, x2_p, y2, 1, x3_p, y3, 1);
+    long int dy3 = det(x1_p, y1_p, y1, x2_p, y2_p, y2, x3_p, y3_p, y3);
+
+    alfax = (double)dx1/delta;
+    betax =  (double)dx2/delta;
+    deltax = (double)dx3/delta;
+
+    alfay = (double)dy1 / delta;
+    betay = (double)dy2/delta;
+    deltay = (double)dy3/delta;
+
+}
+
+int getX(int x,int y)
+{
+    return ((alfax* x + betax* y + deltax)/1);
+}
+
+
+int getY(int x, int y)
+{
+    return (alfay* x + betay* y + deltay)/1;
+}
+
+
 void paint(){
 	
-
 	lcdSetCursor(0, 0);
 	for(uint16_t x=0; x<LCD_MAX_X; x++){
 		for(uint16_t y=0; y<LCD_MAX_Y; y++){
-			lcdWriteReg(DATA_RAM,LCDBlack);
+			lcdWriteReg(DATA_RAM,LCDBlack);		//Change color here
 		}
 	}
 	
@@ -289,21 +296,17 @@ void print_letter(int x, int y, char c){
 	for(int i=0;i<16;i++)
 	{
 		
-	//	unsigned char temp;
-		
-		
-		
 		for( j=7,j2=0;j>=0;j--,j2++)
 		{
 			lcdSetCursor(x+j2,y+i);
 			
 			if(pBuffer[i] & (1<<j))
 			{
-				lcdWriteReg(DATA_RAM,0xF800);
+				lcdWriteReg(DATA_RAM,0xF800);		//Change letter color here
 			}
 			else
 			{
-				lcdWriteReg(DATA_RAM,LCDGreen);
+				lcdWriteReg(DATA_RAM,LCDGreen);		//Change bg color here
 			}
 			
 			y0++;
@@ -333,7 +336,7 @@ void print_string(int x, int y,char* s)
 
 
 
-//Rysuj prosta linie
+
 void paint_straightLine(int x1, int y1, int x2, int y2){
 	
 	lcdSetCursor(x1, y1);
@@ -357,39 +360,19 @@ void paint_straightLine(int x1, int y1, int x2, int y2){
 	if(x1==x2){
 		for(uint16_t y=y1; y<dy; y++){
 			lcdSetCursor(x1, y);
-			lcdWriteReg(DATA_RAM,0xF800);
+			lcdWriteReg(DATA_RAM,0xF800);		//Change color here
 		}
 	}
 	else{
 		for(uint16_t x=x1; x<dx; x++){
 			lcdSetCursor(x, y1);
-			lcdWriteReg(DATA_RAM,0xF800);
+			lcdWriteReg(DATA_RAM,0xF800);		//Change color here
 		}
 	}
 
 }
 
-//Rysowanie kola TODO
-void paint_circle(int r, int x, int y){
-	
-	
-	//int y0 = y;
-	int value1=0;
-	for(int x0 = x - r;x0<=x+r;x0++){
-		
-		if(r>x0)
-			value1=sqrt(r*r - x0*x0);
-		else
-			value1=sqrt(x0*x0 - r*r);
-		
-		lcdSetCursor(x0, value1);
-		lcdWriteReg(DATA_RAM,0xF800);
-		
-	}
 
-}
-
-//Rysuj prostokat
 void paint_rect(int x1, int y1, int x2, int y2){
 	
 	paint_line(x1, y1, x1, y2);
@@ -398,26 +381,27 @@ void paint_rect(int x1, int y1, int x2, int y2){
 	paint_line(x1, y2, x2, y2);
 	
 }
-//Wypelnij prostokat
+
+
 void fill_rect(int x1, int y1, int x2, int y2){
 	
 	lcdSetCursor(x1, y1);
 	for(uint16_t x=x1; x<x2; x++){
 		for(uint16_t y=y1; y<y2; y++){
 			lcdSetCursor(x, y);
-			lcdWriteReg(DATA_RAM,LCDWhite);
+			lcdWriteReg(DATA_RAM,LCDWhite);		//Change fill color here
 		}
 	}
 	
 	
 }
-//Rysuj linie
+
 void paint_line(int x1, int y1, int x2, int y2){
 	
      int d, dx, dy, ai, bi, xi, yi;
      int x = x1, y = y1;
 	
-     // ustalenie kierunku rysowania
+     
      if (x1 < x2)
      {
          xi = 1;
@@ -428,7 +412,7 @@ void paint_line(int x1, int y1, int x2, int y2){
          xi = -1;
          dx = x1 - x2;
      }
-     // ustalenie kierunku rysowania
+     
      if (y1 < y2)
      {
          yi = 1;
@@ -439,19 +423,19 @@ void paint_line(int x1, int y1, int x2, int y2){
          yi = -1;
          dy = y1 - y2;
      }
-     // pierwszy piksel
-     lcdSetCursor(x, y);
-		 lcdWriteReg(DATA_RAM,LCDBlack );
-     // os wiodaca OX
+     
+    lcdSetCursor(x, y);
+	lcdWriteReg(DATA_RAM,LCDBlack );		//Change color here..
+     
      if (dx > dy)
      {
          ai = (dy - dx) * 2;
          bi = dy * 2;
          d = bi - dx;
-         // petla po kolejnych x
+         
          while (x != x2)
          {
-             // test wspólczynnika
+             
              if (d >= 0)
              {
                  x += xi;
@@ -466,16 +450,16 @@ void paint_line(int x1, int y1, int x2, int y2){
              lcdSetCursor(x, y);
          }
      }
-     // os wiodaca OY
+     
      else
      {
          ai = ( dx - dy ) * 2;
          bi = dx * 2;
          d = bi - dy;
-         // petla po kolejnych y
+         
          while (y != y2)
          {
-             // test wspólczynnika
+           
              if (d >= 0)
              {
                  x += xi;
@@ -488,7 +472,11 @@ void paint_line(int x1, int y1, int x2, int y2){
                  y += yi;
              }
              lcdSetCursor(x, y);
-						 lcdWriteReg(DATA_RAM,LCDBlack );
+			lcdWriteReg(DATA_RAM,LCDBlack ); 	//.. and here
          }
      }
+}
+
+long int det(int A00, int A01, int A02, int A10, int A11, int A12, int A20, int A21, int A22){
+    return A00*(A11*A22 - A21*A12) - A01 *(A10*A22 -A20*A12) + A02*(A10*A21 - A20*A11);
 }
