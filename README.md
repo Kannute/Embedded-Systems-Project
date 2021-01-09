@@ -7,8 +7,8 @@ Dźwięki wysyłane są na peryferium za pomocą DAC.
 ### Środowisko
 Projekt zrealizowany w środowisku programistycznym µVision5.
 ### Urządzenia
-..* Mikrokontroler LPC1786
-..* Wyświetlacz 3.2" TFT (320x240) z rezystancyjnym ekranem dotykowym.
+* Mikrokontroler LPC1786
+* Wyświetlacz 3.2" TFT (320x240) z rezystancyjnym ekranem dotykowym.
 
 
 #### ENG
@@ -18,5 +18,5 @@ Sounds are sent to peripheral device using DAC.
 ### Environment 
 The project implemented in µVision5 programming environment.
 ### Devices
-..* LPC1786 Microcontroller
-..* 3.2inch 320x240 Touch LCD (C)
+* LPC1786 Microcontroller
+* 3.2inch 320x240 Touch LCD (C)
