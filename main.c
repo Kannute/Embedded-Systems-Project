@@ -39,10 +39,11 @@ double alfay;
 double betay;
 double deltay;
 
-char button_pressed = '-';									//Button currently pressed on touchscreen -> default (no button pressed) '-'
-int temp1=0;												//Temporary value for x coordinate value
-int temp2=0;												//Temporary value for y coordinate value
-static int v=0;												//Value sent to DAC register
+char button_pressed = '-';			//Button currently pressed on touchscreen -> default (no button pressed) '-'
+int temp1=0;						//Temporary value for x coordinate value
+int temp2=0;						//Temporary value for y coordinate value
+static int v=0;						//Value sent to DAC register
+int timer_frequency = 1000;			//Wave frequency to me sent to DAC - default value 1000
 
 //Cosine values to be sent to DAC (5 deg steps)
 short list[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
@@ -73,6 +74,14 @@ void TIMER0_IRQHandler(void)  {
 /* IRQ interrupt (touchscreen) handler */
 void EINT3_IRQHandler(void)
 {
+
+/*** 
+ 	TODO 
+ * zmiana timer_frequency w zaleznosci od klawisza
+ * domyslnie ma wartosc 1000 
+ * zwiekszac o wartosc (jaka??) w ifach
+
+***/
 
 		NVIC_DisableIRQ(EINT3_IRQn);
 		
@@ -142,7 +151,7 @@ void EINT3_IRQHandler(void)
 
 int main(void)
 {
-	////do zrobienia TIMER(do zmiany czestotliwosci sygnalow) lub SysTick - oba powinny dzialac  oraz przerwania
+	
 	
 	lcdConfiguration();
 	init_ILI9325();
@@ -170,7 +179,7 @@ int main(void)
 	
 	touchpanelInit();
 	
-	//Paint buttons
+	//Display buttons (one octave)
 	fill_rect(0, 0,30,230);
 	fill_rect(31, 0,60,230);
 	fill_rect(61, 0,90,230);
@@ -189,25 +198,25 @@ int main(void)
 
 	
 	
-	//PINY
+	//PINY 
+	/* TODO - wyrzucic jeden (pin1 lub pin2) bo jest niepotrzebny */
 	uint32_t _pin = PIN_Configure(0, 19, 0, 2, 0);
 	uint32_t _pin1 = PIN_Configure(0, 2, 1, 2, 0);
 	uint32_t _pin2 = PIN_Configure(0, 3, 1, 2, 0);
 	
-	//Przerwania z GPIO             
+	//GPIO interrupts - touchscreen          
 	LPC_GPIOINT->IO0IntEnF=(1<<19);
 	NVIC_EnableIRQ(EINT3_IRQn);
 	
-	//TIMER
+	//TIMER sending signal to DAC
 	LPC_TIM0->PR = 0;
 	LPC_TIM0->MCR  = (1<<1) | (1<<0);   
-	LPC_TIM0->MR0  = SystemCoreClock/4/1000;  
+	LPC_TIM0->MR0  = SystemCoreClock/4/timer_frequency;  
 	LPC_TIM0->TCR=1;     
 	NVIC_EnableIRQ(TIMER0_IRQn);
 	
 	while(1){}
 	
-
 
 	return 0;
 }
