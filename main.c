@@ -209,6 +209,9 @@ void EINT3_IRQHandler(void)
 	
 		temp1=-1;
 		temp2=-1;
+		x=-10;
+		y=-100;
+		
 		LPC_GPIOINT->IO0IntClr=(1<<19);
 		
 		//NVIC_DisableIRQ(TIMER0_IRQn);
