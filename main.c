@@ -27,8 +27,8 @@ long int det(int, int, int, int, int, int, int, int, int); 	//Calculate determin
 int getX(int, int);											//Get calibrated X touchscreen coordinate
 int getY(int, int);											//Get calibrated Y touchscreen coordinate
 void calibrate();											//Calibrate display and touchscreen
-
-
+void volumeUp(); 							//Change volume up
+void volumeDown(); 							//Change volume down
 /******* GLOBAL VARIABLES *******/
 
 //Calibration variables
@@ -39,11 +39,15 @@ double alfay;
 double betay;
 double deltay;
 
+double volume = 1.0;						//Volume percent
 char button_pressed = '-';			//Button currently pressed on touchscreen -> default (no button pressed) '-'
 int temp1=0;						//Temporary value for x coordinate value
 int temp2=0;						//Temporary value for y coordinate value
 static int v=0;						//Value sent to DAC register
-int timer_frequency = 1000;			//Wave frequency to me sent to DAC - default value 1000
+int timer_frequency = 20000;			//4778;////Wave frequency to me sent to DAC - default value 1000
+int flag=0;
+char string_volume[46];
+
 
 //Cosine values to be sent to DAC (5 deg steps)
 short list[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
@@ -51,6 +55,14 @@ short list[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
 93,69,48,31,18,8,2,0,2,8,18,31,48,69,93,120,150,183,219,256,
 296,337,379,423,468,512,557,601,645,687,728,768,806,841,
 874,904,931,954,976,993,1006,1016,1022,1023};
+
+short temp[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
+687,645,601,557,512,468,423,379,337,296,256,219,183,150,120,
+93,69,48,31,18,8,2,0,2,8,18,31,48,69,93,120,150,183,219,256,
+296,337,379,423,468,512,557,601,645,687,728,768,806,841,
+874,904,931,954,976,993,1006,1016,1022,1023};
+
+short list_zero[72] = {0};
 
 
 //Sending value to DAC
@@ -61,14 +73,23 @@ void toDAC(short val)
 
 /* TIMER handler sending values to DAC*/
 void TIMER0_IRQHandler(void)  {
-				
-	toDAC( list[v]);
+	if(flag==1)			
+	{
+		toDAC( list[v]);
+	}
+		else
+	{
+		toDAC( 0 );
+	}
+	
 	v++;
 	v%=72;
-		
+	
 	if(list[v] == 1023) 
 		v=0;
     LPC_TIM0->IR = 1;
+	
+	
 }
 
 /* IRQ interrupt (touchscreen) handler */
@@ -84,12 +105,31 @@ void EINT3_IRQHandler(void)
 ***/
 
 		NVIC_DisableIRQ(EINT3_IRQn);
+	
 		
-		int x;
-		int y;
+		NVIC_EnableIRQ(TIMER0_IRQn);
+		
+		int x,x1,x2,x3,x4;
+		int y,y1,y2,y3,y4;
+	
+	for(int i=0;i<10000;i++){}
+	
 		char string1[46];
 
 		touchpanelGetXY(&x, &y);
+		
+		touchpanelGetXY(&x1, &y1);
+		for(int i=0;i<1000;i++){}
+		touchpanelGetXY(&x2, &y2);
+			for(int i=0;i<1000;i++){}
+		touchpanelGetXY(&x3, &y3);
+				for(int i=0;i<1000;i++){}
+		touchpanelGetXY(&x4, &y4);
+					for(int i=0;i<1000;i++){}
+						
+		
+						
+		
 		sprintf(string1,"%d %d",getX(x,y), getY(x,y));
 
 		print_string(100,260,string1);
@@ -100,50 +140,80 @@ void EINT3_IRQHandler(void)
 	
 		if(y<=230&&y>=0)
 		{
+			
+			flag=1;
+			
 			if(x<=30&&x>=0)
 			{
 				print_string(100,300,"1");
+				LPC_TIM0->MR0  = SystemCoreClock/4/18500;  ////// 257Hz
 				
 			}
 			else if(x<=60)
 			{
 				print_string(100,300,"2");
+				
+				LPC_TIM0->MR0  = SystemCoreClock/4/20000;  ////// 275Hz
+				
 			}
 			else if(x<=90)
 			{
 				print_string(100,300,"3");
+				LPC_TIM0->MR0  = SystemCoreClock/4/21500;  ////// 300Hz
+				
 			}
 			else if(x<=120)
 			{
 				print_string(100,300,"4");
+				LPC_TIM0->MR0  = SystemCoreClock/4/23000;  ////// 320Hz
+				
 			}
 			else if(x<=150)
 			{
 				print_string(100,300,"5");
+				LPC_TIM0->MR0  = SystemCoreClock/4/24500;  ////// 340Hz
+				
 			}
 			else if(x<=180)
 			{
-				print_string(100,300,"6");
+				print_string(100,300,"6"); 
+				LPC_TIM0->MR0  = SystemCoreClock/4/25500;  ////// 350Hz
 			}
 			else if(x<=210)
 			{
 				print_string(100,300,"7");
+				LPC_TIM0->MR0  = SystemCoreClock/4/27000;  ////// 378Hz
 			}
 			else if(x<=240)
 			{
 				print_string(100,300,"8");
+				LPC_TIM0->MR0  = SystemCoreClock/4/28000;  ////// 386Hz
 			}	
 		}
 		else
 		{
+			if(x>=30&&x<=70 && y>= 260 && y<= 280)
+			{	
+					volumeDown();
+			}
+			else if(x>=168&&x<=205 && y>= 260 && y<= 289)
+			{
+					volumeUp();
+			}
 			print_string(100,300,"-");
+			flag=0;
 		}
 	
+		
 		
 	
 		temp1=-1;
 		temp2=-1;
 		LPC_GPIOINT->IO0IntClr=(1<<19);
+		
+		//NVIC_DisableIRQ(TIMER0_IRQn);
+		
+		
 		
 		NVIC_EnableIRQ(EINT3_IRQn);
 	
@@ -188,21 +258,26 @@ int main(void)
 	fill_rect(151, 0,180,230);
 	fill_rect(181, 0,210,230);
 	fill_rect(211, 0,240,230);
+	
+	///plus
+	fill_rect(190, 260,195,290);
+	fill_rect(181, 273,205,277);
+	
+	///minus
+	fill_rect(31, 273,61,277);
+	
+	
 
-
-
-  	LPC_PINCON->PINSEL1=2<<20;
+  LPC_PINCON->PINSEL1=2<<20;
 	LPC_PINCON->PINMODE1=1<<20;
 	
 	LPC_SC->PCLKSEL0=1<<22;
 
 	
-	
-	//PINY 
-	/* TODO - wyrzucic jeden (pin1 lub pin2) bo jest niepotrzebny */
+	/*PINS*/
 	uint32_t _pin = PIN_Configure(0, 19, 0, 2, 0);
 	uint32_t _pin1 = PIN_Configure(0, 2, 1, 2, 0);
-	uint32_t _pin2 = PIN_Configure(0, 3, 1, 2, 0);
+	
 	
 	//GPIO interrupts - touchscreen          
 	LPC_GPIOINT->IO0IntEnF=(1<<19);
@@ -213,16 +288,67 @@ int main(void)
 	LPC_TIM0->MCR  = (1<<1) | (1<<0);   
 	LPC_TIM0->MR0  = SystemCoreClock/4/timer_frequency;  
 	LPC_TIM0->TCR=1;     
-	NVIC_EnableIRQ(TIMER0_IRQn);
 	
-	while(1){}
+	
+	
+	while(1){
+		sprintf(string_volume,"Volume: %.1f",volume);
+		print_string(140, 300,string_volume);
+	}
 	
 
 	return 0;
 }
 
 
+
+
 /**************** FUNCTIONS ********************/
+/**********************************************/
+/**********************************************/
+/**********************************************/
+/**********************************************/
+/**********************************************/
+/**********************************************/
+/**********************************************/
+void volumeUp()
+{
+	
+	
+	if(volume<2.0)
+	{
+		volume+=0.1;
+		for(int i=0;i<73;i++)
+		{
+			list[i]=temp[i];
+			list[i] *= volume / 1;
+		}
+		
+	}
+	
+
+}
+
+
+void volumeDown()
+{
+	
+	
+	if(volume>0)
+	{
+		volume-=0.1;
+		for(int i=0;i<73;i++)
+		{
+			list[i]=temp[i];
+			list[i] *= volume / 1;
+		}
+		
+	}
+	
+
+}
+
+
 
 void calibrate()
 {
@@ -488,4 +614,4 @@ void paint_line(int x1, int y1, int x2, int y2){
 
 long int det(int A00, int A01, int A02, int A10, int A11, int A12, int A20, int A21, int A22){
     return A00*(A11*A22 - A21*A12) - A01 *(A10*A22 -A20*A12) + A02*(A10*A21 - A20*A11);
-}
+} 
