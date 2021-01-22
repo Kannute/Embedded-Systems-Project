@@ -16,7 +16,7 @@
 	LCD_MAX_X  240
 */
 
-void paint();												//Fill lcd screen
+void paint(void);												//Fill lcd screen
 void paint_line(int, int, int, int);						//Paint line on display
 void paint_straightLine(int, int, int, int);				//Paint straight line on display
 void fill_rect(int, int, int, int);							//Paint filled rectangle on display	
@@ -26,9 +26,9 @@ void print_string(int,int,char*);							//Print string on display
 long int det(int, int, int, int, int, int, int, int, int); 	//Calculate determinant (used for display-touchscreen calibration)
 int getX(int, int);											//Get calibrated X touchscreen coordinate
 int getY(int, int);											//Get calibrated Y touchscreen coordinate
-void calibrate();											//Calibrate display and touchscreen
-void volumeUp(); 							//Change volume up
-void volumeDown(); 							//Change volume down
+void calibrate(void);											//Calibrate display and touchscreen
+void volumeUp(void); 							//Change volume up
+void volumeDown(void); 							//Change volume down
 /******* GLOBAL VARIABLES *******/
 
 //Calibration variables
@@ -46,6 +46,7 @@ int temp2=0;						//Temporary value for y coordinate value
 static int v=0;						//Value sent to DAC register
 int timer_frequency = 20000;			//4778;////Wave frequency to me sent to DAC - default value 1000
 int flag=0;
+int flag_play=0;
 char string_volume[46];
 
 
@@ -62,12 +63,52 @@ short temp[ ] = {1023,1022,1016,1006,993,976,954,931,904,874,841,806,768,728,
 296,337,379,423,468,512,557,601,645,687,728,768,806,841,
 874,904,931,954,976,993,1006,1016,1022,1023};
 
+int notes[100]={0};
+short period[100]={0};
+
+int note_iterator=-1;
+
+int first_time=0;
+int second_time=0;
+
+
 short list_zero[72] = {0};
 
+volatile uint32_t msTicks = 0;  
+volatile uint32_t counter = 0;  
+
+void SysTick_Handler(void)  {                             
+  msTicks++;	
+	
+	if(flag_play==1)
+	{
+		NVIC_EnableIRQ(TIMER0_IRQn);
+		if(msTicks%10 != 0)
+		{
+		if(notes[counter]!=0)
+			LPC_TIM0->MR0  = SystemCoreClock/4/notes[counter]; //18500;  ////// 240Hz
+		
+		counter++;
+		counter%=100;
+		
+	
+		}
+		NVIC_DisableIRQ(TIMER0_IRQn);
+	}
+		/*
+	char s[11]; 
+		sprintf(s,"%d", msTicks);
+	
+	
+		//char s=(char)time;
+		print_string(10,280,s);
+*/
+	}
 
 //Sending value to DAC
 void toDAC(short val)
 {
+	
 	LPC_DAC->DACR=val<<6;
 }
 
@@ -75,6 +116,7 @@ void toDAC(short val)
 void TIMER0_IRQHandler(void)  {
 	if(flag==1)			
 	{
+		
 		toDAC( list[v]);
 	}
 		else
@@ -92,106 +134,119 @@ void TIMER0_IRQHandler(void)  {
 	
 }
 
+
 /* IRQ interrupt (touchscreen) handler */
 void EINT3_IRQHandler(void)
 {
 
-/*** 
- 	TODO 
- * zmiana timer_frequency w zaleznosci od klawisza
- * domyslnie ma wartosc 1000 
- * zwiekszac o wartosc (jaka??) w ifach
-
-***/
-
-		NVIC_DisableIRQ(EINT3_IRQn);
 	
-		
+	int time = 0;
+	first_time = 0;
+	second_time = 0;
+		NVIC_DisableIRQ(EINT3_IRQn);
+
+	
 		NVIC_EnableIRQ(TIMER0_IRQn);
 		
-		int x,x1,x2,x3,x4;
-		int y,y1,y2,y3,y4;
+		int x;
+		int y;
 	
-	for(int i=0;i<10000;i++){}
+		for(int i=0;i<10000;i++){}
 	
 		char string1[46];
 
 		touchpanelGetXY(&x, &y);
 		
-		touchpanelGetXY(&x1, &y1);
+		
 		for(int i=0;i<1000;i++){}
-		touchpanelGetXY(&x2, &y2);
-			for(int i=0;i<1000;i++){}
-		touchpanelGetXY(&x3, &y3);
-				for(int i=0;i<1000;i++){}
-		touchpanelGetXY(&x4, &y4);
-					for(int i=0;i<1000;i++){}
 						
 		
 						
 		
-		sprintf(string1,"%d %d",getX(x,y), getY(x,y));
+//		sprintf(string1,"%d %d",getX(x,y), getY(x,y)); wspolrzedne 
 
+			sprintf(string1,"play");
+			
 		print_string(100,260,string1);
 		temp1=getX(x,y);
 		temp2=getY(x,y);
 		x=temp1;
 		y=temp2;
-	
+		
+		if(x>100 && x<160 && y>260 && y< 280 )
+		{
+			flag_play=1;
+		}
+			
 		if(y<=230&&y>=0)
 		{
 			
 			flag=1;
-			
+			first_time=msTicks;
+			note_iterator=note_iterator+1;
 			if(x<=30&&x>=0)
 			{
 				print_string(100,300,"1");
-				LPC_TIM0->MR0  = SystemCoreClock/4/18500;  ////// 257Hz
-				
+				LPC_TIM0->MR0  = SystemCoreClock/4/(17520); //18500;  ////// 240Hz
+				if(note_iterator<100)
+				notes[note_iterator]=17520;
 			}
 			else if(x<=60)
 			{
 				print_string(100,300,"2");
 				
-				LPC_TIM0->MR0  = SystemCoreClock/4/20000;  ////// 275Hz
-				
+				LPC_TIM0->MR0  = SystemCoreClock/4/(19710);  ////// 270Hz
+				if(note_iterator<100)
+				notes[note_iterator]=19710;
 			}
 			else if(x<=90)
 			{
 				print_string(100,300,"3");
-				LPC_TIM0->MR0  = SystemCoreClock/4/21500;  ////// 300Hz
-				
+				LPC_TIM0->MR0  = SystemCoreClock/4/(21900);  ////// 300Hz
+				if(note_iterator<100)
+				notes[note_iterator]=21900;
 			}
 			else if(x<=120)
 			{
 				print_string(100,300,"4");
-				LPC_TIM0->MR0  = SystemCoreClock/4/23000;  ////// 320Hz
-				
+				LPC_TIM0->MR0  = SystemCoreClock/4/(23360);  ////// 320Hz
+				if(note_iterator<100)
+				notes[note_iterator]=23360;
 			}
 			else if(x<=150)
 			{
 				print_string(100,300,"5");
-				LPC_TIM0->MR0  = SystemCoreClock/4/24500;  ////// 340Hz
-				
+				LPC_TIM0->MR0  = SystemCoreClock/4/(26280);  ////// 360Hz
+				if(note_iterator<100)
+				notes[note_iterator]=26280;
 			}
 			else if(x<=180)
 			{
 				print_string(100,300,"6"); 
-				LPC_TIM0->MR0  = SystemCoreClock/4/25500;  ////// 350Hz
+				LPC_TIM0->MR0  = SystemCoreClock/4/(29200);  ////// 400Hz
+				if(note_iterator<100)
+				notes[note_iterator]=29200;
 			}
 			else if(x<=210)
 			{
 				print_string(100,300,"7");
-				LPC_TIM0->MR0  = SystemCoreClock/4/27000;  ////// 378Hz
+				LPC_TIM0->MR0  = SystemCoreClock/4/(32850);  ////// 450Hz
+				if(note_iterator<100)
+				notes[note_iterator]=32850;
 			}
 			else if(x<=240)
 			{
 				print_string(100,300,"8");
-				LPC_TIM0->MR0  = SystemCoreClock/4/28000;  ////// 386Hz
-			}	
+				LPC_TIM0->MR0  = SystemCoreClock/4/(35040);  ////// 480Hz
+				notes[note_iterator]=35040;
+			}
+				
+				
 		}
 		else
 		{
+			second_time=msTicks;
+			time = second_time - first_time;
 			if(x>=30&&x<=70 && y>= 260 && y<= 280)
 			{	
 					volumeDown();
@@ -202,6 +257,7 @@ void EINT3_IRQHandler(void)
 			}
 			print_string(100,300,"-");
 			flag=0;
+			
 		}
 	
 		
@@ -214,13 +270,24 @@ void EINT3_IRQHandler(void)
 		
 		LPC_GPIOINT->IO0IntClr=(1<<19);
 		
-		//NVIC_DisableIRQ(TIMER0_IRQn);
 		
 		
+		
+		if(note_iterator<100 && note_iterator>=0){
+			period[note_iterator]=second_time-first_time;
+		}
+		char s1[11]; 
+		sprintf(s1,"%d",  time);
+	
+		
+		
+		print_string(10,280,s1);
 		
 		NVIC_EnableIRQ(EINT3_IRQn);
 	
 }
+
+
 
 int main(void)
 {
@@ -283,16 +350,25 @@ int main(void)
 	
 	
 	//GPIO interrupts - touchscreen          
+
+
 	LPC_GPIOINT->IO0IntEnF=(1<<19);
+	LPC_GPIOINT->IO0IntEnR=(1<<19);
+	
 	NVIC_EnableIRQ(EINT3_IRQn);
+	
+	
+	
 	
 	//TIMER sending signal to DAC
 	LPC_TIM0->PR = 0;
 	LPC_TIM0->MCR  = (1<<1) | (1<<0);   
-	LPC_TIM0->MR0  = SystemCoreClock/4/timer_frequency;  
+	
+	//LPC_TIM0->MR0  = SystemCoreClock/4/timer_frequency;  
 	LPC_TIM0->TCR=1;     
 	
-	
+  
+  SysTick_Config(SystemCoreClock / 10); // przerwanie co 0.1s
 	
 	while(1){
 		sprintf(string_volume,"Volume: %.1f",volume);
@@ -300,6 +376,9 @@ int main(void)
 	}
 	
 
+	
+	
+	
 	return 0;
 }
 
