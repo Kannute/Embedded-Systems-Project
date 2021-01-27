@@ -72,7 +72,7 @@ volatile uint32_t msTicks = 0;
 volatile uint32_t counter = 0;  
 
 void SysTick_Handler(void)  {                             
-  msTicks++;	
+ /* msTicks++;	
 	
 	if(flag_play==1)
 	{
@@ -89,6 +89,7 @@ void SysTick_Handler(void)  {
 		}
 		NVIC_DisableIRQ(TIMER0_IRQn);
 	}
+*/
 }
 
 //Sending value to DAC
@@ -111,7 +112,7 @@ void TIMER0_IRQHandler(void)  {
 	}
 	
 	v++;
-	v%=72;
+	v%=73;
 	
 	if(list[v] == 1023) 
 		v=0;
