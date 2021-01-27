@@ -9,12 +9,6 @@
 #include "TP_Open1768.h"
 #include "PIN_LPC17xx.h" 
 
-/* 
-	**** LCD display boundaries ****
-
-	LCD_MAX_Y  320		
-	LCD_MAX_X  240
-*/
 
 void paint(void);												//Fill lcd screen
 void paint_line(int, int, int, int);						//Paint line on display
@@ -95,15 +89,7 @@ void SysTick_Handler(void)  {
 		}
 		NVIC_DisableIRQ(TIMER0_IRQn);
 	}
-		/*
-	char s[11]; 
-		sprintf(s,"%d", msTicks);
-	
-	
-		//char s=(char)time;
-		print_string(10,280,s);
-*/
-	}
+}
 
 //Sending value to DAC
 void toDAC(short val)
@@ -162,10 +148,7 @@ void EINT3_IRQHandler(void)
 						
 		
 						
-		
-//		sprintf(string1,"%d %d",getX(x,y), getY(x,y)); wspolrzedne 
-
-			sprintf(string1,"play");
+		sprintf(string1,"play");
 			
 		print_string(100,260,string1);
 		temp1=getX(x,y);
