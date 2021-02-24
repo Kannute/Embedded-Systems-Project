@@ -11,6 +11,8 @@ Projekt zrealizowany w środowisku programistycznym µVision5.
 * Wyświetlacz 3.2" TFT (320x240) z rezystancyjnym ekranem dotykowym.
 * Peryferium do odtwarzania dźwięku
 
+![Organy1](images/organy.jpg)
+![Organy2](images/organyv2.jpg)
 
 #### ENG
 ## Organs with save function
